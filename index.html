@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tiendas — Funnel y Riesgo — Matriz TPF</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#F5F6F8; --panel:#FFFFFF; --panel-alt:#EEF0F4; --text:#1A2233; --text-dim:#5B6472;
+    --border:#D8DBE2; --accent:#23345E; --accent-bg:#E7EAF2;
+    --good:#1F8A5F; --good-bg:#E3F5EC; --bad:#B23B3B; --bad-bg:#FBEAE8;
+    --info:#6C4FA1; --info-bg:#EFE8F7;
+    --neutral:#8B93A1; --neutral-bg:#EEF0F3;
+    --font-display:'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+    --font-mono:'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#11151C; --panel:#171C26; --panel-alt:#1D2330; --text:#E7E9EE; --text-dim:#9AA3B2;
+      --border:#2A3140; --accent:#8CA0E8; --accent-bg:rgba(140,160,232,0.14);
+      --good:#3FC08A; --good-bg:rgba(63,192,138,0.14); --bad:#E37768; --bad-bg:rgba(227,119,104,0.14);
+      --info:#B49BE0; --info-bg:rgba(180,155,224,0.16);
+      --neutral:#7A8494; --neutral-bg:rgba(122,132,148,0.14);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#11151C; --panel:#171C26; --panel-alt:#1D2330; --text:#E7E9EE; --text-dim:#9AA3B2;
+    --border:#2A3140; --accent:#8CA0E8; --accent-bg:rgba(140,160,232,0.14);
+    --good:#3FC08A; --good-bg:rgba(63,192,138,0.14); --bad:#E37768; --bad-bg:rgba(227,119,104,0.14);
+    --info:#B49BE0; --info-bg:rgba(180,155,224,0.16);
+    --neutral:#7A8494; --neutral-bg:rgba(122,132,148,0.14);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:var(--font-mono); font-size:14px; line-height:1.5;
+    padding:28px 20px 60px;
+  }
+  .wrap{max-width:1180px; margin:0 auto;}
+  h1,h2,h3{font-family:var(--font-display); font-weight:600; margin:0;}
+  header.top{display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:18px;}
+  header.top h1{font-size:22px; letter-spacing:-0.01em;}
+  header.top p{margin:4px 0 0; color:var(--text-dim); font-size:13px;}
+  #dataStamp{font-size:12px; color:var(--text-dim); text-align:right;}
+
+  .kpi-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:20px;}
+  .kpi{background:var(--panel); border:1px solid var(--border); border-radius:6px; padding:14px 16px;}
+  .kpi .label{font-size:11px; color:var(--text-dim); font-family:var(--font-mono);}
+  .kpi .value{font-family:var(--font-display); font-size:24px; font-weight:600; margin-top:4px;}
+  .kpi.alert{border-color:var(--bad); background:var(--bad-bg);}
+  .kpi.alert .value{color:var(--bad);}
+  .kpi .sub{font-size:11px; color:var(--text-dim); margin-top:2px;}
+
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:18px 20px; margin-bottom:18px;}
+  .panel h2{font-size:15px; margin-bottom:12px;}
+  .panel h2 .hint{font-family:var(--font-mono); font-size:11px; color:var(--text-dim); font-weight:400; margin-left:8px;}
+
+  .controls-row{display:flex; gap:24px; flex-wrap:wrap; align-items:flex-end;}
+  .field{display:flex; flex-direction:column; gap:6px;}
+  .field label{font-size:11px; color:var(--text-dim);}
+  input[type="file"]{font-family:var(--font-mono); font-size:12px; color:var(--text);}
+  input[type="number"], input[type="text"], select{
+    font-family:var(--font-mono); font-size:13px; color:var(--text); background:var(--panel-alt);
+    border:1px solid var(--border); border-radius:4px; padding:7px 9px; min-width:70px;
+  }
+  input[type="text"]{min-width:170px;}
+  select{min-width:150px;}
+  .threshold-field input{width:60px;}
+  .threshold-field span{color:var(--text-dim); font-size:12px;}
+
+  button{
+    font-family:var(--font-mono); font-size:12px; font-weight:500; color:#fff; background:var(--accent);
+    border:none; border-radius:4px; padding:8px 14px; cursor:pointer;
+  }
+  button:hover{filter:brightness(1.08);}
+  button.danger{background:transparent; color:var(--bad); border:1px solid var(--bad);}
+  button:disabled{opacity:0.4; cursor:not-allowed;}
+
+  details.universe{margin-top:14px;}
+  details.universe summary{cursor:pointer; font-size:12px; color:var(--accent); user-select:none;}
+  details.universe .inner{margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);}
+  #universeStamp{font-size:12px; color:var(--text-dim);}
+
+  .tabs-nav{display:flex; gap:2px; margin-bottom:18px; border-bottom:1px solid var(--border);}
+  .tab-btn{font-family:var(--font-display); font-size:14px; font-weight:600; background:none; border:none;
+    color:var(--text-dim); padding:10px 4px; margin-right:22px; cursor:pointer; border-bottom:2px solid transparent;}
+  .tab-btn.active{color:var(--text); border-bottom-color:var(--accent);}
+  .tab-btn:hover{color:var(--text);}
+
+  .filters-row{display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:12px;}
+  .filters-row .reset-link{font-size:12px; color:var(--accent); cursor:pointer; text-decoration:underline; background:none; border:none; padding:0;}
+  .accum-line{font-size:12px; color:var(--text-dim); margin-bottom:14px;}
+  .accum-line .reset-link{font-size:12px; color:var(--accent); cursor:pointer; text-decoration:underline; background:none; border:none; padding:0;}
+
+  .table-scroll{overflow-x:auto; border:1px solid var(--border); border-radius:6px;}
+  table{border-collapse:collapse; width:100%; min-width:680px;}
+  thead th{
+    position:sticky; top:0; background:var(--panel-alt); text-align:left; font-size:11px;
+    color:var(--text-dim); font-weight:500; padding:9px 10px; border-bottom:1px solid var(--border);
+    cursor:pointer; white-space:nowrap;
+  }
+  thead th:hover{color:var(--text);}
+  tbody td{padding:9px 10px; border-bottom:1px solid var(--border); font-size:13px; white-space:nowrap;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr.status-alerta{border-left:3px solid var(--bad);}
+  tbody tr.status-sano{border-left:3px solid var(--good);}
+  tbody tr.status-sin_datos{border-left:3px solid var(--neutral); opacity:0.72;}
+  .num{text-align:right; font-variant-numeric:tabular-nums;}
+  .badge{display:inline-block; padding:2px 8px; border-radius:99px; font-size:11px; font-weight:500;}
+  .badge.alerta{background:var(--bad-bg); color:var(--bad);}
+  .badge.sano{background:var(--good-bg); color:var(--good);}
+  .badge.sin_datos{background:var(--neutral-bg); color:var(--neutral);}
+  .tag{display:inline-block; padding:1px 7px; border-radius:4px; font-size:11px; background:var(--panel-alt); color:var(--text-dim);}
+  .empty-state{padding:34px 10px; text-align:center; color:var(--text-dim); font-size:13px;}
+
+  .history-save{display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-bottom:14px;}
+  .history-table{width:100%; border-collapse:collapse; font-size:12px; margin-top:10px;}
+  .history-table th{text-align:left; color:var(--text-dim); font-weight:500; padding:5px 8px; border-bottom:1px solid var(--border);}
+  .history-table td{padding:5px 8px; border-bottom:1px solid var(--border);}
+  .history-table td.num{text-align:right;}
+  .history-table .del{color:var(--bad); cursor:pointer; background:none; border:none; font-family:var(--font-mono); font-size:12px; padding:0;}
+  svg.trend{width:100%; max-width:640px; height:auto;}
+
+  footer{margin-top:26px; font-size:11px; color:var(--text-dim); text-align:center;}
+  @media (max-width:640px){
+    .kpi-grid{grid-template-columns:repeat(2,1fr);}
+    .kpi .value{font-size:19px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <h1>Tiendas — Funnel y Riesgo</h1>
+      <p>Originación (evaluados → aprobados → venta) y mora temprana, cruzado contra el universo de la Matriz TPF.</p>
+    </div>
+    <div id="dataStamp">Aún no se ha subido data semanal.</div>
+  </header>
+
+  <div class="panel">
+    <h2>Subir data semanal <span class="hint">solo tú puedes cargar — el dashboard es visible para quien tenga el link</span></h2>
+    <div class="controls-row">
+      <div class="field">
+        <label for="weeklyFile">Archivo semanal (.csv)</label>
+        <input type="file" id="weeklyFile" accept=".csv">
+      </div>
+      <div class="field">
+        <label for="uploadPassword">Clave de carga</label>
+        <input type="password" id="uploadPassword" placeholder="Clave">
+      </div>
+    </div>
+    <p id="uploadStatus" style="font-size:12px; color:var(--text-dim); margin:6px 0 0;"></p>
+    <details class="universe">
+      <summary>Universo de tiendas (opcional: reemplazar la Matriz TPF)</summary>
+      <div class="inner">
+        <p id="universeStamp"></p>
+        <div class="field" style="max-width:280px;">
+          <label for="matrixFile">Nueva matriz (.xlsx o .csv, columnas MERCH ID / TIENDA / Supervisor / ETAPA)</label>
+          <input type="file" id="matrixFile" accept=".xlsx,.xls,.csv">
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div class="tabs-nav">
+    <button type="button" class="tab-btn active" data-tab="funnel">Funnel de tiendas</button>
+    <button type="button" class="tab-btn" data-tab="riesgo">Riesgo de cartera</button>
+    <button type="button" class="tab-btn" data-tab="detalle">Ritmo de venta</button>
+  </div>
+
+  <div class="tab-panel" data-tab-panel="funnel">
+    <div class="kpi-grid" id="kpiGrid-funnel"></div>
+
+    <div class="panel">
+      <h2>Estado por tienda <span class="hint">ordenado por severidad — alertas primero</span></h2>
+      <div class="controls-row" style="margin-bottom:14px;">
+        <div class="field">
+          <label for="periodSelect-funnel">Periodo</label>
+          <select id="periodSelect-funnel">
+            <option value="semana">Semana actual</option>
+            <option value="mes">Mes actual</option>
+            <option value="total">Acumulado total</option>
+          </select>
+        </div>
+      </div>
+      <div class="accum-line"><span id="weeksInfo-funnel"></span> — <button type="button" class="reset-link" id="resetWeeks-funnel">Borrar semanas guardadas</button></div>
+      <div class="controls-row" style="margin-bottom:16px;">
+        <div class="field threshold-field">
+          <label for="th-funnel-aprob">Umbral aprobación</label>
+          <div style="display:flex; align-items:center; gap:6px;"><input type="number" id="th-funnel-aprob" value="90" min="0" max="100"><span>%</span></div>
+        </div>
+        <div class="field threshold-field">
+          <label for="th-funnel-conv">Umbral conversión</label>
+          <div style="display:flex; align-items:center; gap:6px;"><input type="number" id="th-funnel-conv" value="40" min="0" max="100"><span>%</span></div>
+        </div>
+      </div>
+      <div class="filters-row">
+        <input type="text" id="searchBox-funnel" placeholder="Buscar tienda, ID o supervisor">
+        <select id="statusFilter-funnel">
+          <option value="all">Todas</option>
+          <option value="alerta">Solo alertas</option>
+          <option value="sano">Solo sanas</option>
+          <option value="sin_datos">Sin actividad</option>
+        </select>
+        <select id="etapaFilter-funnel"><option value="all">Todas las etapas</option></select>
+        <select id="supFilter-funnel"><option value="all">Todos los supervisores</option></select>
+        <button type="button" class="reset-link" id="resetSort-funnel">Restablecer orden</button>
+      </div>
+      <div class="table-scroll">
+        <table id="storeTable-funnel">
+          <thead><tr>
+            <th data-col="tienda">Tienda</th>
+            <th data-col="etapa">Etapa</th><th data-col="evaluados" class="num">Evaluados</th>
+            <th data-col="aprobados" class="num">Aprobados</th><th data-col="pctAprob" class="num">% Aprob.</th>
+            <th data-col="venta" class="num">Venta</th><th data-col="pctConv" class="num">% Conv.</th>
+            <th data-col="status">Estado</th>
+          </tr></thead>
+          <tbody id="tableBody-funnel"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Historial semanal <span class="hint">guarda un snapshot cada semana para ver la tendencia</span></h2>
+      <div class="history-save">
+        <div class="field"><label for="historyLabel-funnel">Etiqueta de la semana</label><input type="text" id="historyLabel-funnel"></div>
+        <button type="button" id="saveHistoryBtn-funnel">Guardar esta semana</button>
+        <button type="button" class="danger" id="clearHistoryBtn-funnel">Limpiar historial</button>
+      </div>
+      <div id="historyContent-funnel"></div>
+    </div>
+  </div>
+
+  <div class="tab-panel" data-tab-panel="riesgo" style="display:none;">
+    <div class="kpi-grid" id="kpiGrid-riesgo"></div>
+
+    <div class="panel">
+      <h2>Riesgo de cartera por tienda <span class="hint">FPD7 / P40A60 / FPD15 — alertas primero</span></h2>
+      <div class="controls-row" style="margin-bottom:14px;">
+        <div class="field">
+          <label for="periodSelect-riesgo">Periodo</label>
+          <select id="periodSelect-riesgo">
+            <option value="semana">Semana actual</option>
+            <option value="mes">Mes actual</option>
+            <option value="total">Acumulado total</option>
+          </select>
+        </div>
+      </div>
+      <div class="accum-line"><span id="weeksInfo-riesgo"></span> — <button type="button" class="reset-link" id="resetWeeks-riesgo">Borrar semanas guardadas</button></div>
+      <div class="controls-row" style="margin-bottom:16px;">
+        <div class="field threshold-field">
+          <label for="th-riesgo-fpd7">Umbral FPD7 (sano &lt;)</label>
+          <div style="display:flex; align-items:center; gap:6px;"><input type="number" id="th-riesgo-fpd7" value="4" min="0" max="100"><span>%</span></div>
+        </div>
+        <div class="field threshold-field">
+          <label for="th-riesgo-p4060">Umbral P40A60 (sano &gt;)</label>
+          <div style="display:flex; align-items:center; gap:6px;"><input type="number" id="th-riesgo-p4060" value="60" min="0" max="100"><span>%</span></div>
+        </div>
+        <div class="field threshold-field">
+          <label for="th-riesgo-fpd15">Umbral FPD15 (sano &lt;)</label>
+          <div style="display:flex; align-items:center; gap:6px;"><input type="number" id="th-riesgo-fpd15" value="4" min="0" max="100"><span>%</span></div>
+        </div>
+      </div>
+      <div class="filters-row">
+        <input type="text" id="searchBox-riesgo" placeholder="Buscar tienda, ID o supervisor">
+        <select id="statusFilter-riesgo">
+          <option value="all">Todas</option>
+          <option value="alerta">Solo alertas</option>
+          <option value="sano">Solo sanas</option>
+          <option value="sin_datos">Sin datos de mora</option>
+        </select>
+        <select id="etapaFilter-riesgo"><option value="all">Todas las etapas</option></select>
+        <select id="supFilter-riesgo"><option value="all">Todos los supervisores</option></select>
+        <button type="button" class="reset-link" id="resetSort-riesgo">Restablecer orden</button>
+      </div>
+      <div class="table-scroll">
+        <table id="storeTable-riesgo">
+          <thead><tr>
+            <th data-col="tienda">Tienda</th>
+            <th data-col="etapa">Etapa</th><th data-col="fpd7" class="num">FPD7</th>
+            <th data-col="p4060" class="num">P40A60</th><th data-col="fpd15" class="num">FPD15</th>
+            <th data-col="status">Estado</th>
+          </tr></thead>
+          <tbody id="tableBody-riesgo"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Historial semanal <span class="hint">guarda un snapshot cada semana para ver la tendencia</span></h2>
+      <div class="history-save">
+        <div class="field"><label for="historyLabel-riesgo">Etiqueta de la semana</label><input type="text" id="historyLabel-riesgo"></div>
+        <button type="button" id="saveHistoryBtn-riesgo">Guardar esta semana</button>
+        <button type="button" class="danger" id="clearHistoryBtn-riesgo">Limpiar historial</button>
+      </div>
+      <div id="historyContent-riesgo"></div>
+    </div>
+  </div>
+
+  <div class="tab-panel" data-tab-panel="detalle" style="display:none;">
+    <div class="kpi-grid" id="kpiGrid-detalle"></div>
+
+    <div class="panel">
+      <h2>Detalle y ritmo de venta por tienda <span class="hint">solo la última semana subida — alerta si Dif. Challenge o Venta Rel. es negativa</span></h2>
+      <div class="filters-row">
+        <input type="text" id="searchBox-detalle" placeholder="Buscar tienda, ID o supervisor">
+        <select id="statusFilter-detalle">
+          <option value="all">Todas</option>
+          <option value="alerta">Solo alertas</option>
+          <option value="sano">Solo sanas</option>
+          <option value="sin_datos">Sin datos</option>
+        </select>
+        <select id="etapaFilter-detalle"><option value="all">Todas las etapas</option></select>
+        <select id="supFilter-detalle"><option value="all">Todos los supervisores</option></select>
+        <button type="button" class="reset-link" id="resetSort-detalle">Restablecer orden</button>
+      </div>
+      <div class="table-scroll">
+        <table id="storeTable-detalle">
+          <thead><tr>
+            <th data-col="tienda">Tienda</th>
+            <th data-col="etapa">Etapa</th>
+            <th data-col="venta" class="num">Venta</th>
+            <th data-col="difRel" class="num">Dif. Rel.</th>
+            <th data-col="xdia" class="num">x/día</th>
+            <th data-col="ventaRel" class="num">Venta Rel.</th>
+            <th data-col="venta1" class="num">Venta -1</th>
+            <th data-col="venta2" class="num">Venta -2</th>
+            <th data-col="challengeVenta" class="num">Challenge</th>
+            <th data-col="cumpCha" class="num">% Cump. Chall.</th>
+            <th data-col="venProy" class="num">Ven. Proy.</th>
+            <th data-col="difCha" class="num">Dif. Challenge</th>
+            <th data-col="cuotaActivas" class="num">Cuota Activ.</th>
+            <th data-col="evaluados" class="num">Evaluados</th>
+            <th data-col="evaluadosRelativa" class="num">Eval. Rel.</th>
+            <th data-col="fpd7" class="num">FPD7</th>
+            <th data-col="p4060" class="num">P40A60</th>
+            <th data-col="status">Estado</th>
+          </tr></thead>
+          <tbody id="tableBody-detalle"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <footer>Los cálculos y archivos se procesan en tu navegador — no se envían a ningún servidor.</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var DEFAULT_MATRIX = [{"id": "278833", "tienda": "TPF SJ LURIGANCHO", "sup": "JULIO MANUEL GONZALES BEDON", "etapa": "PAYJOY"}, {"id": "275053", "tienda": "TPF HUARAZ", "sup": "NATALIA PRISCILLA VALERA MURILLO", "etapa": "PAYJOY_OUT"}, {"id": "278861", "tienda": "TPF AREQUIPA", "sup": "WILSON RAY GUTIERREZ SANCA", "etapa": "PAYJOY_OUT"}, {"id": "278862", "tienda": "TPF MAP AREQUIPA", "sup": "WILSON RAY GUTIERREZ SANCA", "etapa": "PAYJOY"}, {"id": "278834", "tienda": "TPF COMAS", "sup": "JOSE LUIS ESCRIBA CHIRINOS", "etapa": "PAYJOY"}, {"id": "278835", "tienda": "TPF SANTA ANITA", "sup": "JULIO MANUEL GONZALES BEDON", "etapa": "PAYJOY"}, {"id": "278847", "tienda": "TPF PIURA GRAU", "sup": "SHEYLA STEFANY CASTAÑEDA MONDRAGON", "etapa": "PAYJOY"}, {"id": "278860", "tienda": "TPF MINKA", "sup": "JOSE LUIS ESCRIBA CHIRINOS", "etapa": "PAYJOY"}, {"id": "278845", "tienda": "TPF TC PIUREAL", "sup": "SHEYLA STEFANY CASTAÑEDA MONDRAGON", "etapa": "PAYJOY"}, {"id": "278836", "tienda": "TPF CHORRILLOS", "sup": "JULIO MANUEL GONZALES BEDON", "etapa": "PAYJOY"}, {"id": "278844", "tienda": "TPF TRUJILLO", "sup": "NATALIA PRISCILLA VALERA MURILLO", "etapa": "PAYJOY"}, {"id": "278856", "tienda": "TPF ICA CENTRO", "sup": "JULIO MANUEL GONZALES BEDON", "etapa": "PAYJOY"}, {"id": "278853", "tienda": "TPF-CERCADO", "sup": "JOSE LUIS ESCRIBA CHIRINOS", "etapa": "PAYJOY"}, {"id": "278840", "tienda": "TPF CHIMBOTE", "sup": "NATALIA PRISCILLA VALERA MURILLO", "etapa": "PAYJOY"}, {"id": "278854", "tienda": "TPF MEGA PLAZA", "sup": "JOSE LUIS ESCRIBA CHIRINOS", "etapa": "PAYJOY"}, {"id": "278855", "tienda": "TPF PLAZA NORTE2", "sup": "JOSE LUIS ESCRIBA CHIRINOS", "etapa": "PAYJOY"}, {"id": "278837", "tienda": "TPF MALL DEL SUR", "sup": "JULIO MANUEL GONZALES BEDON", "etapa": "PAYJOY"}, {"id": "278838", "tienda": "TPF_MAPSJLURIGANCHO", "sup": "JULIO MANUEL GONZALES BEDON", "etapa": "PAYJOY"}, {"id": "278850", "tienda": "TPF TARAPOTO", "sup": "CHESIRA IPCHAS", "etapa": "PAYJOY_OUT"}, {"id": "278859", "tienda": "TPF HUANCAYO", "sup": "CHESIRA IPCHAS", "etapa": "PAYJOY"}, {"id": "278858", "tienda": "TPF CUSCO", "sup": "WILSON RAY GUTIERREZ SANCA", "etapa": "PAYJOY_OUT"}, {"id": "278848", "tienda": "TPF CHICLAYO", "sup": "CESAR BARRENO", "etapa": "PAYJOY_OUT"}, {"id": "280958", "tienda": "TPF OPEN ANGAMOS", "sup": "JULIO MANUEL GONZALES BEDON", "etapa": "PAYJOY"}, {"id": "278849", "tienda": "TPF MAP CHICLAYO", "sup": "CESAR BARRENO", "etapa": "PAYJOY_OUT"}, {"id": "278857", "tienda": "TPF CUSCO SOL", "sup": "WILSON RAY GUTIERREZ SANCA", "etapa": "PAYJOY_OUT"}, {"id": "278843", "tienda": "TPF PIURA", "sup": "SHEYLA STEFANY CASTAÑEDA MONDRAGON", "etapa": "PAYJOY_OUT"}, {"id": "278839", "tienda": "TPF TRUJILLO LARCO", "sup": "NATALIA PRISCILLA VALERA MURILLO", "etapa": "PAYJOY"}, {"id": "261413", "tienda": "TPF PURUCHUCO", "sup": "JULIO MANUEL GONZALES BEDON", "etapa": "PAYJOY_OUT"}, {"id": "278846", "tienda": "TPF RP CHICLAYO", "sup": "CESAR BARRENO", "etapa": "PAYJOY"}, {"id": "278852", "tienda": "TPF PLAZA SAN MIGUEL", "sup": "JOSE LUIS ESCRIBA CHIRINOS", "etapa": "PAYJOY"}, {"id": "278832", "tienda": "TPF REPUBLICA", "sup": "JULIO MANUEL GONZALES BEDON", "etapa": "PAYJOY"}, {"id": "278863", "tienda": "TPF JULIACA", "sup": "WILSON RAY GUTIERREZ SANCA", "etapa": "PAYJOY_OUT"}, {"id": "278841", "tienda": "TPF TUMBES", "sup": "SHEYLA STEFANY CASTAÑEDA MONDRAGON", "etapa": "PAYJOY_OUT"}, {"id": "263205", "tienda": "TPF TACNA", "sup": "WILSON RAY GUTIERREZ SANCA", "etapa": "PAYJOY_OUT"}, {"id": "278842", "tienda": "TPF TALARA", "sup": "SHEYLA STEFANY CASTAÑEDA MONDRAGON", "etapa": "PAYJOY_OUT"}, {"id": "278831", "tienda": "TPF IQUITOS", "sup": "CHESIRA IPCHAS", "etapa": "PAYJOY"}, {"id": "262935", "tienda": "TPF-TC HUARAL", "sup": "JOSE LUIS ESCRIBA CHIRINOS", "etapa": "PAYJOY_OUT"}, {"id": "262915", "tienda": "TPF PUENTE PIEDRA", "sup": "JOSE LUIS ESCRIBA CHIRINOS", "etapa": "PAYJOY_OUT"}, {"id": "262926", "tienda": "TPF HUACHO28", "sup": "JOSE LUIS ESCRIBA CHIRINOS", "etapa": "PAYJOY_OUT"}, {"id": "262909", "tienda": "TPF BARRANCA", "sup": "JOSE LUIS ESCRIBA CHIRINOS", "etapa": "PAYJOY_OUT"}, {"id": "252919", "tienda": "TPF-TC CHINCHAITALIA", "sup": "JULIO MANUEL GONZALES BEDON", "etapa": "PAYJOY"}, {"id": "270964", "tienda": "TPF-TC AYACASAMBLEA2", "sup": "CHESIRA IPCHAS", "etapa": "PAYJOY"}, {"id": "253789", "tienda": "TPF HUANCAVELICA", "sup": "WILSON RAY GUTIERREZ SANCA", "etapa": "PAYJOY"}, {"id": "233888", "tienda": "TPF-TC ICACAÑETE", "sup": "JULIO MANUEL GONZALES BEDON", "etapa": "PAYJOY"}, {"id": "270969", "tienda": "TPF AYACUCHO1", "sup": "CHESIRA IPCHAS", "etapa": "PAYJOY"}, {"id": "270977", "tienda": "TPF PUNO", "sup": "WILSON RAY GUTIERREZ SANCA", "etapa": "PAYJOY"}, {"id": "253778", "tienda": "TPF ABANCAY", "sup": "WILSON RAY GUTIERREZ SANCA", "etapa": "PAYJOY"}, {"id": "253779", "tienda": "TPF ANDAHUAYLAS", "sup": "WILSON RAY GUTIERREZ SANCA", "etapa": "PAYJOY"}, {"id": "253777", "tienda": "TPF QUILLABAMBA", "sup": "WILSON RAY GUTIERREZ SANCA", "etapa": "PAYJOY"}, {"id": "252923", "tienda": "TPF-TC ICAPISCO", "sup": "JULIO MANUEL GONZALES BEDON", "etapa": "PAYJOY"}, {"id": "270953", "tienda": "TPF-TC TARMA", "sup": "CHESIRA IPCHAS", "etapa": "PAYJOY"}, {"id": "270960", "tienda": "TPF HUANCAYO1", "sup": "WILSON RAY GUTIERREZ SANCA", "etapa": "PAYJOY"}, {"id": "270962", "tienda": "TPF-TC LAMERCED", "sup": "SHEYLA STEFANY CASTAÑEDA MONDRAGON", "etapa": "PAYJOY"}, {"id": "270965", "tienda": "TPF-TC JAUJA", "sup": "CHESIRA IPCHAS", "etapa": "PAYJOY"}, {"id": "270976", "tienda": "TPF-TC PASCOSNJUAN", "sup": "CHESIRA IPCHAS", "etapa": "PAYJOY"}, {"id": "270979", "tienda": "TPF-TC SATIPO", "sup": "SHEYLA STEFANY CASTAÑEDA MONDRAGON", "etapa": "PAYJOY"}, {"id": "263009", "tienda": "TPF MP CAJAMARCA", "sup": "CESAR BARRENO", "etapa": "PAYJOY_OUT"}, {"id": "263008", "tienda": "TPF TRUPIZARRO", "sup": "NATALIA PRISCILLA VALERA MURILLO", "etapa": "PAYJOY_OUT"}, {"id": "263007", "tienda": "TPF-TC JAEN", "sup": "CESAR BARRENO", "etapa": "PAYJOY_OUT"}, {"id": "233821", "tienda": "TPF-TC TRUJUNIN", "sup": "NATALIA PRISCILLA VALERA MURILLO", "etapa": "PAYJOY_OUT"}, {"id": "238435", "tienda": "TPF-TC HUAMACHUCO", "sup": "NATALIA PRISCILLA VALERA MURILLO", "etapa": "PAYJOY_OUT"}, {"id": "240831", "tienda": "TPF-TC TRUCHEPEN", "sup": "NATALIA PRISCILLA VALERA MURILLO", "etapa": "PAYJOY_OUT"}, {"id": "236838", "tienda": "TPF-TC PACASMAYO", "sup": "NATALIA PRISCILLA VALERA MURILLO", "etapa": "PAYJOY_OUT"}, {"id": "238401", "tienda": "TPF CHACHAPOYAS", "sup": "CESAR BARRENO", "etapa": "PAYJOY_OUT"}, {"id": "263724", "tienda": "TPF CASMA", "sup": "NATALIA PRISCILLA VALERA MURILLO", "etapa": "PAYJOY_OUT"}, {"id": "233820", "tienda": "TPF-TC PAIJAN", "sup": "NATALIA PRISCILLA VALERA MURILLO", "etapa": "PAYJOY_OUT"}, {"id": "233459", "tienda": "TPF-TC CHABAGUA", "sup": "CESAR BARRENO", "etapa": "PAYJOY_OUT"}, {"id": "233600", "tienda": "TPF CAJAMARCA", "sup": "CESAR BARRENO", "etapa": "PAYJOY_OUT"}, {"id": "233819", "tienda": "TPF-TC TRUPORVENIR", "sup": "NATALIA PRISCILLA VALERA MURILLO", "etapa": "PAYJOY_OUT"}, {"id": "271261", "tienda": "TPF- MEGACHIMBOTE", "sup": "NATALIA PRISCILLA VALERA MURILLO", "etapa": "PAYJOY_OUT"}, {"id": "274700", "tienda": "TPF-TC VES1", "sup": "JULIO MANUEL GONZALES BEDON", "etapa": "PAYJOY_OUT"}, {"id": "279883", "tienda": "TPF PAITA", "sup": "SHEYLA STEFANY CASTAÑEDA MONDRAGON", "etapa": "PAYJOY_OUT"}, {"id": "279886", "tienda": "TPF MOYOBAMBA", "sup": "CHESIRA IPCHAS", "etapa": "PAYJOY_OUT"}, {"id": "279887", "tienda": "TPF LAMBAYEQUE", "sup": "CESAR BARRENO", "etapa": "PAYJOY_OUT"}, {"id": "279885", "tienda": "TPF-TC SANTACLARA", "sup": "JULIO MANUEL GONZALES BEDON", "etapa": "PAYJOY_OUT"}, {"id": "280266", "tienda": "TPF-TC SULLANA", "sup": "SHEYLA STEFANY CASTAÑEDA MONDRAGON", "etapa": "PAYJOY_OUT"}, {"id": "280269", "tienda": "TPF PANORAMICO", "sup": "WILSON RAY GUTIERREZ SANCA", "etapa": "PAYJOY_OUT"}, {"id": "280218", "tienda": "TPF BELLAVISTA", "sup": "JOSE LUIS ESCRIBA CHIRINOS", "etapa": "PAYJOY_OUT"}];
+  var STATUS_LABEL = {alerta:"Revisar", sano:"Sano", sin_datos:"Sin datos"};
+  var STATUS_RANK = {alerta:0, sin_datos:1, sano:2};
+
+  var API_URL = "/api/store-data";
+
+  var shared = {
+    universe: DEFAULT_MATRIX.map(function(r){ return {id:r.id, tienda:r.tienda, sup:r.sup, etapa:r.etapa}; }),
+    universeLabel: "Matriz TPF (cargada por defecto, " + DEFAULT_MATRIX.length + " tiendas)",
+    weeklyDetailById: {},
+    weeklyStamp: null,
+    funnelWeeks: {},
+    riesgoWeeks: {},
+    ready: false
+  };
+
+  function applyServerState(state){
+    shared.funnelWeeks = state.funnelWeeks || {};
+    shared.riesgoWeeks = state.riesgoWeeks || {};
+    shared.weeklyDetailById = state.weeklyDetailById || {};
+    shared.weeklyStamp = state.weeklyStamp ? new Date(state.weeklyStamp) : null;
+    if(Array.isArray(state.universe) && state.universe.length){
+      shared.universe = state.universe;
+      shared.universeLabel = state.universeLabel || ("Matriz personalizada (" + state.universe.length + " tiendas)");
+    }
+  }
+
+  async function fetchSharedState(){
+    var res = await fetch(API_URL, {method:"GET"});
+    if(!res.ok) throw new Error("No se pudo cargar la data compartida (" + res.status + ")");
+    var state = await res.json();
+    applyServerState(state);
+  }
+
+  async function postSharedAction(payload){
+    var res = await fetch(API_URL, {
+      method:"POST",
+      headers: {"content-type":"application/json"},
+      body: JSON.stringify(payload)
+    });
+    var data = null;
+    try{ data = await res.json(); }catch(e){}
+    if(!res.ok){
+      var msg = (data && data.error) ? data.error : ("Error " + res.status);
+      throw new Error(msg);
+    }
+    applyServerState(data);
+  }
+
+
+  function sortedWeekDates(weeksObj){ return Object.keys(weeksObj).sort(); }
+  function monthOf(dateStr){ return dateStr.slice(0,7); }
+  function groupDatesByMonth(dates){
+    var byMonth = {};
+    dates.forEach(function(d){ var m = monthOf(d); if(!byMonth[m]) byMonth[m] = []; byMonth[m].push(d); });
+    var months = Object.keys(byMonth).sort();
+    return months.map(function(m){ return {month:m, dates:byMonth[m]}; });
+  }
+  function periodKeys(weeksObj, period){
+    var dates = sortedWeekDates(weeksObj);
+    if(period === "semana"){
+      return { cur: dates.length ? [dates[dates.length-1]] : [], prev: dates.length>1 ? [dates[dates.length-2]] : [] };
+    }
+    if(period === "mes"){
+      var months = groupDatesByMonth(dates);
+      return { cur: months.length ? months[months.length-1].dates : [], prev: months.length>1 ? months[months.length-2].dates : [] };
+    }
+    return { cur: dates, prev: [] };
+  }
+  function periodLabelText(period){
+    return period === "semana" ? "esta semana" : period === "mes" ? "este mes" : "acumulado total";
+  }
+  function prevLabelText(period){
+    return period === "semana" ? "semana anterior" : period === "mes" ? "mes anterior" : null;
+  }
+  // Suma evaluados/aprobados/venta de una tienda a través de las fechas dadas (null si no hay ninguna)
+  function sumFunnelForStore(weeksObj, dateKeys, id){
+    var out = {evaluados:0, aprobados:0, venta:0}, any = false;
+    dateKeys.forEach(function(dk){
+      var wk = weeksObj[dk] && weeksObj[dk].byId[id];
+      if(wk){ any = true; out.evaluados += wk.evaluados; out.aprobados += wk.aprobados; out.venta += wk.venta; }
+    });
+    return any ? out : null;
+  }
+  // Último valor no nulo de cada campo para una tienda, recorriendo las fechas en orden (arrastre acotado al rango dado)
+  function carryForwardForStore(weeksObj, dateKeysAsc, id, fields){
+    var out = {}, any = false;
+    fields.forEach(function(f){ out[f] = null; });
+    dateKeysAsc.forEach(function(dk){
+      var wk = weeksObj[dk] && weeksObj[dk].byId[id];
+      if(wk){ fields.forEach(function(f){ if(wk[f] !== null && wk[f] !== undefined){ out[f] = wk[f]; any = true; } }); }
+    });
+    return any ? out : null;
+  }
+  function deltaBadge(delta, goodDir){
+    if(delta === null || delta === undefined || Math.abs(delta) < 0.05) return "";
+    var favorable = goodDir === "up" ? delta > 0 : delta < 0;
+    var color = favorable ? "var(--good)" : "var(--bad)";
+    var arrow = delta > 0 ? "▲" : "▼";
+    var txt = Math.abs(delta).toLocaleString('es-PE',{minimumFractionDigits:1,maximumFractionDigits:1});
+    return ' <span style="color:'+color+'; font-size:11px;">'+arrow+txt+'pp</span>';
+  }
+
+  // ---------- generic helpers ----------
+  function normalizeId(v){
+    var s = String(v === undefined || v === null ? "" : v).trim();
+    s = s.replace(/\.0+$/,"");
+    return s;
+  }
+  function parseNumber(v){
+    if(v === undefined || v === null) return 0;
+    var s = String(v).trim();
+    if(s === "") return 0;
+    var n = parseFloat(s.replace(/,/g,""));
+    return isNaN(n) ? 0 : n;
+  }
+  function parseRatioOrNull(v){
+    if(v === undefined || v === null) return null;
+    var s = String(v).trim();
+    if(s === "") return null;
+    var n = parseFloat(s.replace(/,/g,""));
+    return isNaN(n) ? null : n;
+  }
+  function avg(arr){
+    if(!arr.length) return null;
+    var s = 0; arr.forEach(function(v){ s += v; });
+    return s / arr.length;
+  }
+  function fmtInt(n){ return new Intl.NumberFormat('es-PE').format(Math.round(n||0)); }
+  function fmtPct(x){ return x === null || x === undefined ? "—" : (x*100).toLocaleString('es-PE',{minimumFractionDigits:1,maximumFractionDigits:1}) + "%"; }
+  function fmtDec(x, maxDigits){
+    return (x === null || x === undefined || isNaN(x)) ? "—" : new Intl.NumberFormat('es-PE',{maximumFractionDigits:maxDigits}).format(x);
+  }
+  function escapeHtml(str){
+    return String(str === undefined || str === null ? "" : str)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+  function findKey(obj, regex){
+    var keys = Object.keys(obj);
+    for(var i=0;i<keys.length;i++){ if(regex.test(keys[i])) return keys[i]; }
+    return null;
+  }
+  function findExactKey(obj, name){
+    var keys = Object.keys(obj);
+    for(var i=0;i<keys.length;i++){ if(keys[i].trim().toUpperCase() === name) return keys[i]; }
+    return null;
+  }
+  function defaultWeekLabel(){
+    return new Date().toLocaleDateString('es-PE', {day:'2-digit', month:'short'});
+  }
+  function kpiCardHtml(c){
+    return '<div class="kpi'+(c.alert?' alert':'')+'"><div class="label">'+escapeHtml(c.label)+'</div>'+
+      '<div class="value">'+c.value+'</div>'+(c.sub ? '<div class="sub">'+escapeHtml(c.sub)+'</div>' : '') + '</div>';
+  }
+  function updateDataStamp(){
+    var el = document.getElementById("dataStamp");
+    el.textContent = shared.weeklyStamp ? ("Data semanal cargada: " + shared.weeklyStamp.toLocaleString('es-PE')) : "Aún no se ha subido data semanal.";
+  }
+  function updateUniverseStamp(){
+    document.getElementById("universeStamp").textContent = "Universo actual: " + shared.universeLabel;
+  }
+  function updateWeeksInfo(){
+    var nF = Object.keys(shared.funnelWeeks).length;
+    var nR = Object.keys(shared.riesgoWeeks).length;
+    document.getElementById("weeksInfo-funnel").textContent = nF + " semana(s) registradas" + (nF ? " (" + sortedWeekDates(shared.funnelWeeks)[0] + " a " + sortedWeekDates(shared.funnelWeeks)[nF-1] + ")" : "");
+    document.getElementById("weeksInfo-riesgo").textContent = nR + " semana(s) registradas" + (nR ? " (" + sortedWeekDates(shared.riesgoWeeks)[0] + " a " + sortedWeekDates(shared.riesgoWeeks)[nR-1] + ")" : "");
+  }
+  function setUploadStatus(msg, isError){
+    var el = document.getElementById("uploadStatus");
+    if(!el) return;
+    el.textContent = msg || "";
+    el.style.color = isError ? "var(--bad)" : "var(--text-dim)";
+  }
+  function bindResetButton(buttonId, resetFn){
+    var btn = document.getElementById(buttonId);
+    var confirming = false;
+    var original = btn.textContent;
+    btn.addEventListener("click", function(){
+      if(!confirming){
+        confirming = true;
+        btn.textContent = "¿Seguro? Clic para confirmar";
+        setTimeout(function(){ confirming = false; btn.textContent = original; }, 4000);
+        return;
+      }
+      confirming = false;
+      btn.textContent = original;
+      resetFn();
+    });
+  }
+  function renderTrendSVG(history, lines){
+    var w=600,h=190,padL=36,padR=10,padT=10,padB=22;
+    var innerW=w-padL-padR, innerH=h-padT-padB;
+    var n=history.length;
+    var xStep = n>1 ? innerW/(n-1) : 0;
+    function yFor(v){ var c = (v===null||v===undefined) ? 0 : Math.max(0, Math.min(1,v)); return padT + innerH - c*innerH; }
+    function xFor(i){ return padL + (n>1 ? i*xStep : innerW/2); }
+    var svg = '<svg class="trend" viewBox="0 0 '+w+' '+h+'" xmlns="http://www.w3.org/2000/svg">';
+    svg += '<line x1="'+padL+'" y1="'+padT+'" x2="'+padL+'" y2="'+(h-padB)+'" stroke="var(--border)" stroke-width="1"/>';
+    svg += '<line x1="'+padL+'" y1="'+(h-padB)+'" x2="'+(w-padR)+'" y2="'+(h-padB)+'" stroke="var(--border)" stroke-width="1"/>';
+    [0,0.5,1].forEach(function(t){
+      var y = padT + innerH - t*innerH;
+      svg += '<text x="4" y="'+(y+3)+'" font-size="9" fill="var(--text-dim)" font-family="var(--font-mono)">'+Math.round(t*100)+'%</text>';
+    });
+    lines.forEach(function(ln){
+      var y = yFor(ln.threshold);
+      svg += '<line x1="'+padL+'" y1="'+y+'" x2="'+(w-padR)+'" y2="'+y+'" stroke="'+ln.color+'" stroke-width="1" stroke-dasharray="3,3" opacity="0.45"/>';
+    });
+    lines.forEach(function(ln){
+      var pts = history.map(function(hh,i){ return xFor(i)+","+yFor(hh[ln.key]); }).join(" ");
+      svg += '<polyline points="'+pts+'" fill="none" stroke="'+ln.color+'" stroke-width="2"/>';
+    });
+    history.forEach(function(hh,i){
+      lines.forEach(function(ln){
+        svg += '<circle cx="'+xFor(i)+'" cy="'+yFor(hh[ln.key])+'" r="2.5" fill="'+ln.color+'"/>';
+      });
+    });
+    svg += '</svg>';
+    var legend = '<div style="font-size:11px; color:var(--text-dim); margin-top:4px;">' +
+      lines.map(function(ln){ return '<span style="color:'+ln.color+';">●</span> '+escapeHtml(ln.label); }).join(' &nbsp; ') +
+      ' &nbsp; líneas punteadas = umbrales actuales</div>';
+    return svg + legend;
+  }
+  function columnCompareGeneric(col, dir, columns){
+    var colDef = columns.filter(function(c){ return c.key === col; })[0];
+    return function(a,b){
+      var av = colDef.sortValue(a), bv = colDef.sortValue(b);
+      var isStr = (typeof av === "string") || (typeof bv === "string");
+      if(av === null || av === undefined) av = isStr ? "" : -Infinity;
+      if(bv === null || bv === undefined) bv = isStr ? "" : -Infinity;
+      var res = isStr ? String(av).localeCompare(String(bv)) : (av - bv);
+      return dir === "asc" ? res : -res;
+    };
+  }
+
+  // ---------- tab factory ----------
+  function makeTab(spec){
+    var s = spec.suffix;
+    var byId = function(base){ return document.getElementById(base + "-" + s); };
+    var hasHistory = !!spec.historyKey;
+    var hasPeriod = !!spec.defaultPeriod;
+    var els = {
+      kpiGrid: byId("kpiGrid"), tableBody: byId("tableBody"),
+      searchBox: byId("searchBox"), statusFilter: byId("statusFilter"), etapaFilter: byId("etapaFilter"),
+      supFilter: byId("supFilter"), resetSort: byId("resetSort")
+    };
+    if(hasHistory){
+      els.historyContent = byId("historyContent"); els.historyLabel = byId("historyLabel");
+      els.saveHistoryBtn = byId("saveHistoryBtn"); els.clearHistoryBtn = byId("clearHistoryBtn");
+    }
+    if(hasPeriod){ els.periodSelect = byId("periodSelect"); }
+    var local = {
+      thresholds: Object.assign({}, spec.defaultThresholds),
+      filters: {search:"", status:"all", etapa:"all", sup:"all"},
+      sort: {col:null, dir:"asc"},
+      period: spec.defaultPeriod || null,
+      merged: []
+    };
+    if(hasPeriod){ els.periodSelect.value = local.period; }
+
+    function rebuild(){
+      local.merged = shared.universe.map(function(u){
+        return spec.computeRow(u, local);
+      });
+      render();
+    }
+    function render(){
+      var hasData = spec.hasAnyData();
+      var cards = spec.computeKpis(local.merged, hasData, local.thresholds, local);
+      els.kpiGrid.innerHTML = cards.map(kpiCardHtml).join("");
+
+      var currentEtapa = els.etapaFilter.value || "all";
+      var etapas = Array.from(new Set(shared.universe.map(function(u){ return u.etapa; }).filter(Boolean))).sort();
+      var optHtml = '<option value="all">Todas las etapas</option>';
+      etapas.forEach(function(e){ optHtml += '<option value="'+escapeHtml(e)+'">'+escapeHtml(e)+'</option>'; });
+      els.etapaFilter.innerHTML = optHtml;
+      if(etapas.indexOf(currentEtapa) !== -1) els.etapaFilter.value = currentEtapa;
+
+      var currentSup = els.supFilter.value || "all";
+      var sups = Array.from(new Set(shared.universe.map(function(u){ return u.sup; }).filter(Boolean))).sort();
+      var supHtml = '<option value="all">Todos los supervisores</option>';
+      sups.forEach(function(sp){ supHtml += '<option value="'+escapeHtml(sp)+'">'+escapeHtml(sp)+'</option>'; });
+      els.supFilter.innerHTML = supHtml;
+      if(sups.indexOf(currentSup) !== -1) els.supFilter.value = currentSup;
+
+      renderTable();
+      if(hasHistory) renderHistory();
+    }
+    function renderTable(){
+      var rows = local.merged.slice();
+      var f = local.filters;
+      if(f.search){
+        var q = f.search.toLowerCase();
+        rows = rows.filter(function(r){
+          return r.tienda.toLowerCase().indexOf(q)!==-1 || r.id.indexOf(q)!==-1 || (r.sup||"").toLowerCase().indexOf(q)!==-1;
+        });
+      }
+      if(f.status !== "all") rows = rows.filter(function(r){ return r.status === f.status; });
+      if(f.etapa !== "all") rows = rows.filter(function(r){ return r.etapa === f.etapa; });
+      if(f.sup !== "all") rows = rows.filter(function(r){ return r.sup === f.sup; });
+
+      if(local.sort.col){ rows.sort(columnCompareGeneric(local.sort.col, local.sort.dir, spec.columns)); }
+      else { rows.sort(function(a,b){ return spec.defaultCompare(a,b,local.thresholds); }); }
+
+      if(!spec.hasAnyData()){
+        els.tableBody.innerHTML = '<tr><td colspan="'+spec.columns.length+'"><div class="empty-state">'+spec.emptyMessage+'</div></td></tr>';
+        return;
+      }
+      if(!rows.length){
+        els.tableBody.innerHTML = '<tr><td colspan="'+spec.columns.length+'"><div class="empty-state">Ninguna tienda coincide con los filtros actuales.</div></td></tr>';
+        return;
+      }
+      var html = "";
+      rows.forEach(function(r){
+        html += '<tr class="status-'+r.status+'">';
+        spec.columns.forEach(function(c){ html += '<td'+(c.numeric?' class="num"':'')+'>'+c.render(r)+'</td>'; });
+        html += '</tr>';
+      });
+      els.tableBody.innerHTML = html;
+    }
+    function loadHistory(){ try{ var raw = localStorage.getItem(spec.historyKey); return raw ? JSON.parse(raw) : []; }catch(e){ return []; } }
+    function saveHistoryArr(arr){ try{ localStorage.setItem(spec.historyKey, JSON.stringify(arr)); }catch(e){} }
+    function renderHistory(){
+      var history = loadHistory();
+      els.saveHistoryBtn.disabled = !spec.hasAnyData();
+      if(!history.length){
+        els.historyContent.innerHTML = '<div class="empty-state" style="padding:16px 4px;">Aún no hay semanas guardadas. Guarda esta semana para empezar a ver la tendencia.</div>';
+        return;
+      }
+      var svgHtml = spec.renderTrend(history, local.thresholds);
+      var tableHtml = '<table class="history-table"><thead><tr><th>Semana</th>' +
+        spec.historyColumns.map(function(c){ return '<th class="num">'+c.label+'</th>'; }).join("") + '<th></th></tr></thead><tbody>';
+      history.forEach(function(hh, idx){
+        tableHtml += '<tr><td>'+escapeHtml(hh.label)+'</td>' +
+          spec.historyColumns.map(function(c){ return '<td class="num">'+c.render(hh)+'</td>'; }).join("") +
+          '<td><button type="button" class="del" data-idx="'+idx+'">✕</button></td></tr>';
+      });
+      tableHtml += '</tbody></table>';
+      els.historyContent.innerHTML = svgHtml + tableHtml;
+      Array.prototype.forEach.call(els.historyContent.querySelectorAll(".del"), function(btn){
+        btn.addEventListener("click", function(){
+          var idx = parseInt(btn.getAttribute("data-idx"),10);
+          var hist = loadHistory(); hist.splice(idx,1); saveHistoryArr(hist); renderHistory();
+        });
+      });
+    }
+
+    spec.thresholdInputs.forEach(function(t){
+      document.getElementById(t.id).addEventListener("input", function(e){
+        var v = parseFloat(e.target.value);
+        local.thresholds[t.key] = isNaN(v) ? 0 : v;
+        rebuild();
+      });
+    });
+    els.searchBox.addEventListener("input", function(e){ local.filters.search = e.target.value.trim(); renderTable(); });
+    els.statusFilter.addEventListener("change", function(e){ local.filters.status = e.target.value; renderTable(); });
+    els.etapaFilter.addEventListener("change", function(e){ local.filters.etapa = e.target.value; renderTable(); });
+    els.supFilter.addEventListener("change", function(e){ local.filters.sup = e.target.value; renderTable(); });
+    if(hasPeriod){
+      els.periodSelect.addEventListener("change", function(e){ local.period = e.target.value; rebuild(); });
+    }
+    els.resetSort.addEventListener("click", function(){ local.sort = {col:null, dir:"asc"}; renderTable(); });
+    Array.prototype.forEach.call(document.querySelectorAll('#storeTable-'+s+' thead th'), function(th){
+      th.addEventListener("click", function(){
+        var col = th.getAttribute("data-col");
+        if(local.sort.col === col){ local.sort.dir = local.sort.dir === "asc" ? "desc" : "asc"; }
+        else { local.sort = {col:col, dir:"asc"}; }
+        renderTable();
+      });
+    });
+    if(hasHistory){
+      els.saveHistoryBtn.addEventListener("click", function(){
+        if(!spec.hasAnyData()) return;
+        var label = els.historyLabel.value.trim() || defaultWeekLabel();
+        var hist = loadHistory();
+        hist.push(spec.buildHistoryEntry(label, local.merged));
+        saveHistoryArr(hist);
+        renderHistory();
+      });
+      var confirmingClear = false;
+      els.clearHistoryBtn.addEventListener("click", function(){
+        if(!confirmingClear){
+          confirmingClear = true;
+          els.clearHistoryBtn.textContent = "¿Seguro? Clic para confirmar";
+          setTimeout(function(){ confirmingClear = false; els.clearHistoryBtn.textContent = "Limpiar historial"; }, 4000);
+          return;
+        }
+        saveHistoryArr([]); confirmingClear = false; els.clearHistoryBtn.textContent = "Limpiar historial"; renderHistory();
+      });
+      els.historyLabel.value = defaultWeekLabel();
+    }
+
+    return { rebuild: rebuild };
+  }
+
+  // ---------- FUNNEL spec ----------
+  var funnelSpec = {
+    suffix: "funnel",
+    defaultThresholds: {aprob:90, conv:40},
+    defaultPeriod: "semana",
+    thresholdInputs: [{id:"th-funnel-aprob", key:"aprob"}, {id:"th-funnel-conv", key:"conv"}],
+    historyKey: "funnel_tiendas_history_v2",
+    emptyMessage: "Sube al menos una semana de data (.csv) para ver esta vista.",
+    hasAnyData: function(){ return Object.keys(shared.funnelWeeks).length > 0; },
+    computeRow: function(u, local){
+      var pk = periodKeys(shared.funnelWeeks, local.period);
+      var cur = sumFunnelForStore(shared.funnelWeeks, pk.cur, u.id);
+      var prev = pk.prev.length ? sumFunnelForStore(shared.funnelWeeks, pk.prev, u.id) : null;
+
+      var evaluados = cur ? cur.evaluados : 0;
+      var aprobados = cur ? cur.aprobados : 0;
+      var venta = cur ? cur.venta : 0;
+      var hasActivity = cur && (evaluados>0 || aprobados>0 || venta>0);
+      var pctAprob = evaluados>0 ? aprobados/evaluados : null;
+      var pctConv = aprobados>0 ? venta/aprobados : null;
+      var pctAprobPrev = null, pctConvPrev = null;
+      if(prev){
+        pctAprobPrev = prev.evaluados>0 ? prev.aprobados/prev.evaluados : null;
+        pctConvPrev = prev.aprobados>0 ? prev.venta/prev.aprobados : null;
+      }
+      var status;
+      if(!hasActivity) status = "sin_datos";
+      else{
+        var aprobOk = pctAprob===null ? true : (pctAprob*100) >= local.thresholds.aprob;
+        var convOk = pctConv===null ? true : (pctConv*100) >= local.thresholds.conv;
+        status = (aprobOk && convOk) ? "sano" : "alerta";
+      }
+      return {id:u.id, tienda:u.tienda || ("Tienda "+u.id), sup:u.sup, etapa:u.etapa,
+        evaluados:evaluados, aprobados:aprobados, venta:venta, pctAprob:pctAprob, pctConv:pctConv,
+        pctAprobDelta: (pctAprob!==null && pctAprobPrev!==null) ? (pctAprob-pctAprobPrev)*100 : null,
+        pctConvDelta: (pctConv!==null && pctConvPrev!==null) ? (pctConv-pctConvPrev)*100 : null,
+        status:status};
+    },
+    columns: [
+      {key:"tienda", numeric:false, render:function(r){ return escapeHtml(r.tienda); }, sortValue:function(r){ return r.tienda; }},
+      {key:"etapa", numeric:false, render:function(r){ return r.etapa ? '<span class="tag">'+escapeHtml(r.etapa)+'</span>' : "—"; }, sortValue:function(r){ return r.etapa||""; }},
+      {key:"evaluados", numeric:true, render:function(r){ return fmtInt(r.evaluados); }, sortValue:function(r){ return r.evaluados; }},
+      {key:"aprobados", numeric:true, render:function(r){ return fmtInt(r.aprobados); }, sortValue:function(r){ return r.aprobados; }},
+      {key:"pctAprob", numeric:true, render:function(r){ return fmtPct(r.pctAprob) + deltaBadge(r.pctAprobDelta,"up"); }, sortValue:function(r){ return r.pctAprob; }},
+      {key:"venta", numeric:true, render:function(r){ return fmtInt(r.venta); }, sortValue:function(r){ return r.venta; }},
+      {key:"pctConv", numeric:true, render:function(r){ return fmtPct(r.pctConv) + deltaBadge(r.pctConvDelta,"up"); }, sortValue:function(r){ return r.pctConv; }},
+      {key:"status", numeric:false, render:function(r){ return '<span class="badge '+r.status+'">'+STATUS_LABEL[r.status]+'</span>'; }, sortValue:function(r){ return STATUS_RANK[r.status]; }}
+    ],
+    defaultCompare: function(a,b){
+      var r = STATUS_RANK[a.status] - STATUS_RANK[b.status];
+      if(r !== 0) return r;
+      if(a.status === "alerta"){
+        var av = a.pctConv===null ? -1 : a.pctConv, bv = b.pctConv===null ? -1 : b.pctConv;
+        if(av !== bv) return av - bv;
+        var aa = a.pctAprob===null ? -1 : a.pctAprob, bb = b.pctAprob===null ? -1 : b.pctAprob;
+        return aa - bb;
+      }
+      return a.tienda.localeCompare(b.tienda);
+    },
+    computeKpis: function(merged, hasData, thresholds, local){
+      var activos = merged.filter(function(r){ return r.status !== "sin_datos"; });
+      var totalEval=0, totalAprob=0, totalVenta=0;
+      activos.forEach(function(r){ totalEval+=r.evaluados; totalAprob+=r.aprobados; totalVenta+=r.venta; });
+      var aprobProm = totalEval>0 ? totalAprob/totalEval : null;
+      var convProm = totalAprob>0 ? totalVenta/totalAprob : null;
+      var enAlerta = merged.filter(function(r){ return r.status === "alerta"; }).length;
+
+      var periodLabel = periodLabelText(local.period);
+      var prevLabel = prevLabelText(local.period);
+      function deltaTxt(vals){
+        if(!prevLabel || !vals.length) return "";
+        var d = avg(vals);
+        if(d===null) return "";
+        return " · "+(d>=0?"▲":"▼")+Math.abs(d).toFixed(1)+"pp vs "+prevLabel;
+      }
+      var aprobDeltaTxt = deltaTxt(activos.filter(function(r){return r.pctAprobDelta!==null;}).map(function(r){return r.pctAprobDelta;}));
+      var convDeltaTxt = deltaTxt(activos.filter(function(r){return r.pctConvDelta!==null;}).map(function(r){return r.pctConvDelta;}));
+
+      return [
+        {label:"Universo de tiendas", value:fmtInt(merged.length), sub:""},
+        {label:"Con actividad ("+periodLabel+")", value: hasData ? fmtInt(activos.length) : "—", sub: hasData ? ("de "+fmtInt(merged.length)) : "sube el archivo semanal"},
+        {label:"Aprobación ("+periodLabel+")", value: hasData ? fmtPct(aprobProm) : "—", sub:"umbral "+thresholds.aprob+"%"+aprobDeltaTxt},
+        {label:"Conversión ("+periodLabel+")", value: hasData ? fmtPct(convProm) : "—", sub:"umbral "+thresholds.conv+"%"+convDeltaTxt},
+        {label:"En alerta", value: hasData ? fmtInt(enAlerta) : "—", sub: hasData ? "tiendas por revisar" : "", alert:true}
+      ];
+    },
+    buildHistoryEntry: function(label, merged){
+      var activos = merged.filter(function(r){ return r.status !== "sin_datos"; });
+      var totalEval=0, totalAprob=0, totalVenta=0;
+      activos.forEach(function(r){ totalEval+=r.evaluados; totalAprob+=r.aprobados; totalVenta+=r.venta; });
+      return {label:label, ts:Date.now(),
+        aprob: totalEval>0 ? totalAprob/totalEval : null,
+        conv: totalAprob>0 ? totalVenta/totalAprob : null,
+        alerta: merged.filter(function(r){ return r.status === "alerta"; }).length};
+    },
+    historyColumns: [
+      {label:"% Aprob.", render:function(hh){ return fmtPct(hh.aprob); }},
+      {label:"% Conv.", render:function(hh){ return fmtPct(hh.conv); }},
+      {label:"En alerta", render:function(hh){ return fmtInt(hh.alerta); }}
+    ],
+    renderTrend: function(history, thresholds){
+      return renderTrendSVG(history, [
+        {key:"aprob", color:"var(--accent)", threshold:thresholds.aprob/100, label:"% aprobación"},
+        {key:"conv", color:"var(--bad)", threshold:thresholds.conv/100, label:"% conversión"}
+      ]);
+    }
+  };
+
+  // ---------- RIESGO spec ----------
+  function riesgoSeverity(row, thresholds){
+    var sev = 0;
+    if(row.fpd7 !== null && (row.fpd7*100) >= thresholds.fpd7) sev += (row.fpd7*100 - thresholds.fpd7);
+    if(row.p4060 !== null && (row.p4060*100) <= thresholds.p4060) sev += (thresholds.p4060 - row.p4060*100);
+    if(row.fpd15 !== null && (row.fpd15*100) >= thresholds.fpd15) sev += (row.fpd15*100 - thresholds.fpd15);
+    return sev;
+  }
+  var riesgoSpec = {
+    suffix: "riesgo",
+    defaultThresholds: {fpd7:4, p4060:60, fpd15:4},
+    defaultPeriod: "semana",
+    thresholdInputs: [{id:"th-riesgo-fpd7", key:"fpd7"}, {id:"th-riesgo-p4060", key:"p4060"}, {id:"th-riesgo-fpd15", key:"fpd15"}],
+    historyKey: "riesgo_cartera_history_v1",
+    emptyMessage: "Sube al menos una semana de data (.csv) para ver esta vista.",
+    hasAnyData: function(){ return Object.keys(shared.riesgoWeeks).length > 0; },
+    computeRow: function(u, local){
+      var pk = periodKeys(shared.riesgoWeeks, local.period);
+      var cur = carryForwardForStore(shared.riesgoWeeks, pk.cur, u.id, ["fpd7","p4060","fpd15"]);
+      var prev = pk.prev.length ? carryForwardForStore(shared.riesgoWeeks, pk.prev, u.id, ["fpd7","p4060","fpd15"]) : null;
+
+      var fpd7 = cur ? cur.fpd7 : null;
+      var p4060 = cur ? cur.p4060 : null;
+      var fpd15 = cur ? cur.fpd15 : null;
+      var hasData = cur !== null;
+      var status;
+      if(!hasData) status = "sin_datos";
+      else{
+        var fpd7Ok = fpd7===null ? true : (fpd7*100) < local.thresholds.fpd7;
+        var p4060Ok = p4060===null ? true : (p4060*100) > local.thresholds.p4060;
+        var fpd15Ok = fpd15===null ? true : (fpd15*100) < local.thresholds.fpd15;
+        status = (fpd7Ok && p4060Ok && fpd15Ok) ? "sano" : "alerta";
+      }
+      return {id:u.id, tienda:u.tienda || ("Tienda "+u.id), sup:u.sup, etapa:u.etapa,
+        fpd7:fpd7, p4060:p4060, fpd15:fpd15,
+        fpd7Delta: (fpd7!==null && prev && prev.fpd7!==null) ? (fpd7-prev.fpd7)*100 : null,
+        p4060Delta: (p4060!==null && prev && prev.p4060!==null) ? (p4060-prev.p4060)*100 : null,
+        fpd15Delta: (fpd15!==null && prev && prev.fpd15!==null) ? (fpd15-prev.fpd15)*100 : null,
+        status:status};
+    },
+    columns: [
+      {key:"tienda", numeric:false, render:function(r){ return escapeHtml(r.tienda); }, sortValue:function(r){ return r.tienda; }},
+      {key:"etapa", numeric:false, render:function(r){ return r.etapa ? '<span class="tag">'+escapeHtml(r.etapa)+'</span>' : "—"; }, sortValue:function(r){ return r.etapa||""; }},
+      {key:"fpd7", numeric:true, render:function(r){ return fmtPct(r.fpd7) + deltaBadge(r.fpd7Delta,"down"); }, sortValue:function(r){ return r.fpd7; }},
+      {key:"p4060", numeric:true, render:function(r){ return fmtPct(r.p4060) + deltaBadge(r.p4060Delta,"up"); }, sortValue:function(r){ return r.p4060; }},
+      {key:"fpd15", numeric:true, render:function(r){ return fmtPct(r.fpd15) + deltaBadge(r.fpd15Delta,"down"); }, sortValue:function(r){ return r.fpd15; }},
+      {key:"status", numeric:false, render:function(r){ return '<span class="badge '+r.status+'">'+STATUS_LABEL[r.status]+'</span>'; }, sortValue:function(r){ return STATUS_RANK[r.status]; }}
+    ],
+    defaultCompare: function(a,b,thresholds){
+      var r = STATUS_RANK[a.status] - STATUS_RANK[b.status];
+      if(r !== 0) return r;
+      if(a.status === "alerta"){
+        var sa = riesgoSeverity(a,thresholds), sb = riesgoSeverity(b,thresholds);
+        if(sa !== sb) return sb - sa;
+      }
+      return a.tienda.localeCompare(b.tienda);
+    },
+    computeKpis: function(merged, hasData, thresholds, local){
+      var activos = merged.filter(function(r){ return r.status !== "sin_datos"; });
+      var fpd7Prom = avg(activos.filter(function(r){ return r.fpd7!==null; }).map(function(r){ return r.fpd7; }));
+      var p4060Prom = avg(activos.filter(function(r){ return r.p4060!==null; }).map(function(r){ return r.p4060; }));
+      var fpd15Prom = avg(activos.filter(function(r){ return r.fpd15!==null; }).map(function(r){ return r.fpd15; }));
+      var enAlerta = merged.filter(function(r){ return r.status === "alerta"; }).length;
+
+      var periodLabel = periodLabelText(local.period);
+      var prevLabel = prevLabelText(local.period);
+      function deltaTxt(vals){
+        if(!prevLabel || !vals.length) return "";
+        var d = avg(vals);
+        if(d===null) return "";
+        return " · "+(d>=0?"▲":"▼")+Math.abs(d).toFixed(1)+"pp vs "+prevLabel;
+      }
+      var fpd7DeltaTxt = deltaTxt(activos.filter(function(r){return r.fpd7Delta!==null;}).map(function(r){return r.fpd7Delta;}));
+      var p4060DeltaTxt = deltaTxt(activos.filter(function(r){return r.p4060Delta!==null;}).map(function(r){return r.p4060Delta;}));
+      var fpd15DeltaTxt = deltaTxt(activos.filter(function(r){return r.fpd15Delta!==null;}).map(function(r){return r.fpd15Delta;}));
+
+      return [
+        {label:"Universo de tiendas", value:fmtInt(merged.length), sub:""},
+        {label:"Con dato conocido ("+periodLabel+")", value: hasData ? fmtInt(activos.length) : "—", sub: hasData ? ("de "+fmtInt(merged.length)) : "sube el archivo semanal"},
+        {label:"FPD7 ("+periodLabel+")", value: hasData ? fmtPct(fpd7Prom) : "—", sub:"sano < "+thresholds.fpd7+"%"+fpd7DeltaTxt},
+        {label:"P40A60 ("+periodLabel+")", value: hasData ? fmtPct(p4060Prom) : "—", sub:"sano > "+thresholds.p4060+"%"+p4060DeltaTxt},
+        {label:"FPD15 ("+periodLabel+")", value: hasData ? fmtPct(fpd15Prom) : "—", sub:"sano < "+thresholds.fpd15+"%"+fpd15DeltaTxt},
+        {label:"En alerta", value: hasData ? fmtInt(enAlerta) : "—", sub: hasData ? "tiendas por revisar" : "", alert:true}
+      ];
+    },
+    buildHistoryEntry: function(label, merged){
+      var activos = merged.filter(function(r){ return r.status !== "sin_datos"; });
+      return {label:label, ts:Date.now(),
+        fpd7: avg(activos.filter(function(r){ return r.fpd7!==null; }).map(function(r){ return r.fpd7; })),
+        p4060: avg(activos.filter(function(r){ return r.p4060!==null; }).map(function(r){ return r.p4060; })),
+        fpd15: avg(activos.filter(function(r){ return r.fpd15!==null; }).map(function(r){ return r.fpd15; })),
+        alerta: merged.filter(function(r){ return r.status === "alerta"; }).length};
+    },
+    historyColumns: [
+      {label:"FPD7", render:function(hh){ return fmtPct(hh.fpd7); }},
+      {label:"P40A60", render:function(hh){ return fmtPct(hh.p4060); }},
+      {label:"FPD15", render:function(hh){ return fmtPct(hh.fpd15); }},
+      {label:"En alerta", render:function(hh){ return fmtInt(hh.alerta); }}
+    ],
+    renderTrend: function(history, thresholds){
+      return renderTrendSVG(history, [
+        {key:"fpd7", color:"var(--bad)", threshold:thresholds.fpd7/100, label:"FPD7"},
+        {key:"p4060", color:"var(--good)", threshold:thresholds.p4060/100, label:"P40A60"},
+        {key:"fpd15", color:"var(--info)", threshold:thresholds.fpd15/100, label:"FPD15"}
+      ]);
+    }
+  };
+
+  // xdia = (cuota de ventas - venta al día de ayer) / días que le quedan al mes
+  function computeXdia(mesStr, diaMax, cuotaVentas, venta){
+    if(!mesStr || diaMax===null || cuotaVentas===null || venta===null) return null;
+    var parts = mesStr.split("-");
+    if(parts.length < 2) return null;
+    var year = parseInt(parts[0],10), month = parseInt(parts[1],10);
+    if(isNaN(year) || isNaN(month)) return null;
+    var daysInMonth = new Date(year, month, 0).getDate();
+    var diasRestantes = daysInMonth - diaMax;
+    if(diasRestantes <= 0) return null;
+    return (cuotaVentas - venta) / diasRestantes;
+  }
+
+  // ---------- DETALLE (ritmo de venta) spec ----------
+  var detalleSpec = {
+    suffix: "detalle",
+    defaultThresholds: {},
+    thresholdInputs: [],
+    historyKey: null,
+    emptyMessage: "Sube el archivo semanal (.csv) para ver esta vista. Usa solo la última data subida.",
+    hasAnyData: function(){ return !!shared.weeklyStamp; },
+    computeRow: function(u, local){
+      var w = shared.weeklyDetailById ? shared.weeklyDetailById[u.id] : null;
+      var hasData = !!w && (w.ventaRaw!==null || (w.evaluadosRaw!==null && w.evaluadosRaw>0) || w.cumpCha!==null || w.fpd7!==null || w.p4060!==null);
+      var difCha = w ? w.difCha : null;
+      var ventaRel = w ? w.ventaRel : null;
+      var status;
+      if(!hasData) status = "sin_datos";
+      else{
+        var alerta = (difCha !== null && difCha < 0) || (ventaRel !== null && ventaRel < 0);
+        status = alerta ? "alerta" : "sano";
+      }
+      return {
+        id:u.id, tienda:u.tienda || ("Tienda "+u.id), sup:u.sup, etapa:u.etapa, status:status,
+        venta: w ? w.ventaRaw : null,
+        difRel: w ? w.difRel : null,
+        xdia: w ? w.xdia : null,
+        ventaRel: ventaRel,
+        venta1: w ? w.venta1 : null,
+        venta2: w ? w.venta2 : null,
+        challengeVenta: w ? w.challengeVenta : null,
+        cumpCha: w ? w.cumpCha : null,
+        venProy: w ? w.venProy : null,
+        difCha: difCha,
+        cuotaActivas: w ? w.cuotaActivas : null,
+        evaluados: w ? w.evaluadosRaw : null,
+        evaluadosRelativa: w ? w.evaluadosRelativa : null,
+        fpd7: w ? w.fpd7 : null,
+        p4060: w ? w.p4060 : null
+      };
+    },
+    columns: [
+      {key:"tienda", numeric:false, render:function(r){ return escapeHtml(r.tienda); }, sortValue:function(r){ return r.tienda; }},
+      {key:"etapa", numeric:false, render:function(r){ return r.etapa ? '<span class="tag">'+escapeHtml(r.etapa)+'</span>' : "—"; }, sortValue:function(r){ return r.etapa||""; }},
+      {key:"venta", numeric:true, render:function(r){ return fmtDec(r.venta,0); }, sortValue:function(r){ return r.venta; }},
+      {key:"difRel", numeric:true, render:function(r){ return fmtDec(r.difRel,0); }, sortValue:function(r){ return r.difRel; }},
+      {key:"xdia", numeric:true, render:function(r){ return fmtDec(r.xdia,2); }, sortValue:function(r){ return r.xdia; }},
+      {key:"ventaRel", numeric:true, render:function(r){ return fmtDec(r.ventaRel,0); }, sortValue:function(r){ return r.ventaRel; }},
+      {key:"venta1", numeric:true, render:function(r){ return fmtDec(r.venta1,0); }, sortValue:function(r){ return r.venta1; }},
+      {key:"venta2", numeric:true, render:function(r){ return fmtDec(r.venta2,0); }, sortValue:function(r){ return r.venta2; }},
+      {key:"challengeVenta", numeric:true, render:function(r){ return fmtDec(r.challengeVenta,1); }, sortValue:function(r){ return r.challengeVenta; }},
+      {key:"cumpCha", numeric:true, render:function(r){ return fmtPct(r.cumpCha); }, sortValue:function(r){ return r.cumpCha; }},
+      {key:"venProy", numeric:true, render:function(r){ return fmtDec(r.venProy,1); }, sortValue:function(r){ return r.venProy; }},
+      {key:"difCha", numeric:true, render:function(r){ return fmtDec(r.difCha,1); }, sortValue:function(r){ return r.difCha; }},
+      {key:"cuotaActivas", numeric:true, render:function(r){ return fmtDec(r.cuotaActivas,1); }, sortValue:function(r){ return r.cuotaActivas; }},
+      {key:"evaluados", numeric:true, render:function(r){ return fmtDec(r.evaluados,0); }, sortValue:function(r){ return r.evaluados; }},
+      {key:"evaluadosRelativa", numeric:true, render:function(r){ return fmtDec(r.evaluadosRelativa,0); }, sortValue:function(r){ return r.evaluadosRelativa; }},
+      {key:"fpd7", numeric:true, render:function(r){ return fmtPct(r.fpd7); }, sortValue:function(r){ return r.fpd7; }},
+      {key:"p4060", numeric:true, render:function(r){ return fmtPct(r.p4060); }, sortValue:function(r){ return r.p4060; }},
+      {key:"status", numeric:false, render:function(r){ return '<span class="badge '+r.status+'">'+STATUS_LABEL[r.status]+'</span>'; }, sortValue:function(r){ return STATUS_RANK[r.status]; }}
+    ],
+    defaultCompare: function(a,b){
+      var rank = STATUS_RANK[a.status] - STATUS_RANK[b.status];
+      if(rank !== 0) return rank;
+      if(a.status === "alerta"){
+        var sevA = (a.difCha!==null && a.difCha<0 ? -a.difCha : 0) + (a.ventaRel!==null && a.ventaRel<0 ? -a.ventaRel : 0);
+        var sevB = (b.difCha!==null && b.difCha<0 ? -b.difCha : 0) + (b.ventaRel!==null && b.ventaRel<0 ? -b.ventaRel : 0);
+        if(sevA !== sevB) return sevB - sevA;
+      }
+      return a.tienda.localeCompare(b.tienda);
+    },
+    computeKpis: function(merged, hasData){
+      var conDatos = merged.filter(function(r){ return r.status !== "sin_datos"; });
+      var xdiaVals = conDatos.filter(function(r){ return r.xdia!==null; }).map(function(r){ return r.xdia; });
+      var cumpChaVals = conDatos.filter(function(r){ return r.cumpCha!==null; }).map(function(r){ return r.cumpCha; });
+      var enAlerta = merged.filter(function(r){ return r.status === "alerta"; }).length;
+      return [
+        {label:"Universo de tiendas", value:fmtInt(merged.length), sub:""},
+        {label:"Con datos esta semana", value: hasData ? fmtInt(conDatos.length) : "—", sub: hasData ? ("de "+fmtInt(merged.length)) : "sube el archivo semanal"},
+        {label:"Ritmo diario necesario (prom.)", value: hasData ? fmtDec(avg(xdiaVals),2) : "—", sub:"unidades/día para llegar a la cuota"},
+        {label:"Cumplimiento challenge (prom.)", value: hasData ? fmtPct(avg(cumpChaVals)) : "—", sub:""},
+        {label:"En alerta", value: hasData ? fmtInt(enAlerta) : "—", sub: hasData ? "Dif. Challenge o Venta Rel. negativa" : "", alert:true}
+      ];
+    }
+  };
+
+  // Fecha de corte de la semana subida (MES + DIA_MAX), formato YYYY-MM-DD. Si falta info, usa hoy.
+  function computeAsOfDate(mesStr, diaMax){
+    if(mesStr && diaMax !== null){
+      var parts = mesStr.split("-");
+      if(parts.length >= 2){
+        var year = parseInt(parts[0],10), month = parseInt(parts[1],10);
+        if(!isNaN(year) && !isNaN(month) && diaMax >= 1){
+          var d = new Date(year, month-1, diaMax);
+          return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+        }
+      }
+    }
+    var today = new Date();
+    return today.getFullYear() + "-" + String(today.getMonth()+1).padStart(2,"0") + "-" + String(today.getDate()).padStart(2,"0");
+  }
+
+  // ---------- weekly / matrix file handling ----------
+  function handleWeeklyFile(file){
+    if(!file) return;
+    var password = document.getElementById("uploadPassword").value;
+    Papa.parse(file, {
+      header:true, skipEmptyLines:true, transformHeader:function(h){ return h.trim(); },
+      complete:async function(results){
+        var rows = results.data;
+        if(!rows.length){ alert("El archivo no tiene filas de datos."); return; }
+        var sample = rows[0];
+        var idKey = findExactKey(sample,"MERCHANTID") || findKey(sample,/MERCH.*ID/i);
+        var evalKey = findExactKey(sample,"EVALUADOS") || findKey(sample,/EVALUAD/i);
+        var aprobKey = findExactKey(sample,"APROBADOS") || findKey(sample,/APROBAD/i);
+        var ventaKey = findExactKey(sample,"VENTA");
+        var fpd7Key = findExactKey(sample,"FPD7_LAST30D");
+        var p4060Key = findExactKey(sample,"P40A60_LAST30D");
+        var fpd15Key = findExactKey(sample,"FPD15_LAST30D");
+        var mesKey = findExactKey(sample,"MES");
+        var diaMaxKey = findExactKey(sample,"DIA_MAX");
+        var cuotaVentasKey = findExactKey(sample,"CUOTA_VENTAS");
+        var difRelKey = findExactKey(sample,"DIF_REL");
+        var ventaRelKey = findExactKey(sample,"VENTA_REL");
+        var venta1Key = findExactKey(sample,"VENTA_1");
+        var venta2Key = findExactKey(sample,"VENTA_2");
+        var challengeKey = findExactKey(sample,"CHALLENGE_VENTA") || findKey(sample,/CHALLENGE.*VENTA/i);
+        var cumpChaKey = findExactKey(sample,"CUMP_CHA");
+        var venProyKey = findExactKey(sample,"VEN_PROY");
+        var difChaKey = findExactKey(sample,"DIF_CHA");
+        var cuotaActivasKey = findExactKey(sample,"CUOTA_ACTIVAS");
+        var evalRelKey = findExactKey(sample,"EVALUADOS_RELATIVA");
+        if(!idKey || !evalKey || !aprobKey || !ventaKey){
+          alert("No se encontraron las columnas MERCHANTID / EVALUADOS / APROBADOS / VENTA en el archivo.");
+          return;
+        }
+        var map = new Map();
+        rows.forEach(function(r){
+          var id = normalizeId(r[idKey]);
+          if(!id) return;
+          var ventaRaw = parseRatioOrNull(r[ventaKey]);
+          var cuotaVentas = cuotaVentasKey ? parseRatioOrNull(r[cuotaVentasKey]) : null;
+          var diaMax = diaMaxKey ? parseRatioOrNull(r[diaMaxKey]) : null;
+          var mesVal = mesKey ? String(r[mesKey]||"").trim() : "";
+          var xdia = computeXdia(mesVal, diaMax, cuotaVentas, ventaRaw);
+          map.set(id, {
+            evaluados: parseNumber(r[evalKey]),
+            evaluadosRaw: parseRatioOrNull(r[evalKey]),
+            aprobados: parseNumber(r[aprobKey]),
+            venta: parseNumber(r[ventaKey]),
+            fpd7: fpd7Key ? parseRatioOrNull(r[fpd7Key]) : null,
+            p4060: p4060Key ? parseRatioOrNull(r[p4060Key]) : null,
+            fpd15: fpd15Key ? parseRatioOrNull(r[fpd15Key]) : null,
+            ventaRaw: ventaRaw,
+            cuotaVentas: cuotaVentas,
+            xdia: xdia,
+            difRel: difRelKey ? parseRatioOrNull(r[difRelKey]) : null,
+            ventaRel: ventaRelKey ? parseRatioOrNull(r[ventaRelKey]) : null,
+            venta1: venta1Key ? parseRatioOrNull(r[venta1Key]) : null,
+            venta2: venta2Key ? parseRatioOrNull(r[venta2Key]) : null,
+            challengeVenta: challengeKey ? parseRatioOrNull(r[challengeKey]) : null,
+            cumpCha: cumpChaKey ? parseRatioOrNull(r[cumpChaKey]) : null,
+            venProy: venProyKey ? parseRatioOrNull(r[venProyKey]) : null,
+            difCha: difChaKey ? parseRatioOrNull(r[difChaKey]) : null,
+            cuotaActivas: cuotaActivasKey ? parseRatioOrNull(r[cuotaActivasKey]) : null,
+            evaluadosRelativa: evalRelKey ? parseRatioOrNull(r[evalRelKey]) : null
+          });
+        });
+        var diaMaxSample = diaMaxKey ? parseRatioOrNull(sample[diaMaxKey]) : null;
+        var mesSample = mesKey ? String(sample[mesKey]||"").trim() : "";
+        var asOfDate = computeAsOfDate(mesSample, diaMaxSample);
+
+        var funnelById = {}, riesgoById = {}, detailById = {};
+        map.forEach(function(w, id){
+          funnelById[id] = {evaluados:w.evaluados, aprobados:w.aprobados, venta:w.venta};
+          riesgoById[id] = {fpd7:w.fpd7, p4060:w.p4060, fpd15:w.fpd15};
+          detailById[id] = w;
+        });
+
+        setUploadStatus("Subiendo semana " + asOfDate + "...", false);
+        try{
+          await postSharedAction({
+            password: password, action: "weekly", asOfDate: asOfDate,
+            funnelById: funnelById, riesgoById: riesgoById, detailById: detailById
+          });
+          setUploadStatus("Semana " + asOfDate + " cargada correctamente.", false);
+          updateDataStamp();
+          updateWeeksInfo();
+          rebuildAll();
+        }catch(err){
+          setUploadStatus("No se pudo cargar: " + err.message, true);
+        }
+      },
+      error:function(err){ alert("Error al leer el CSV: " + err.message); }
+    });
+  }
+  async function processMatrixRows(rows, sourceLabel, password){
+    if(!rows.length){ alert("El archivo de matriz no tiene filas."); return; }
+    var sample = rows[0];
+    var idKey = findKey(sample,/MERCH.*ID/i);
+    var nameKey = findKey(sample,/TIENDA/i);
+    var supKey = findKey(sample,/SUPERVISOR/i);
+    var etapaKey = findKey(sample,/ETAPA/i);
+    if(!idKey || !nameKey){
+      alert("No se encontraron las columnas MERCH ID / TIENDA en el archivo de matriz.");
+      return;
+    }
+    var universe = [];
+    rows.forEach(function(r){
+      var id = normalizeId(r[idKey]);
+      if(!id) return;
+      universe.push({id:id, tienda:String(r[nameKey]||"").trim(),
+        sup: supKey ? String(r[supKey]||"").trim() : "",
+        etapa: etapaKey ? String(r[etapaKey]||"").trim() : ""});
+    });
+    var universeLabel = sourceLabel + " (" + universe.length + " tiendas)";
+    setUploadStatus("Actualizando universo de tiendas...", false);
+    try{
+      await postSharedAction({password:password, action:"matrix", universe:universe, universeLabel:universeLabel});
+      setUploadStatus("Universo de tiendas actualizado.", false);
+      updateUniverseStamp();
+      rebuildAll();
+    }catch(err){
+      setUploadStatus("No se pudo actualizar: " + err.message, true);
+    }
+  }
+  function handleMatrixFile(file){
+    if(!file) return;
+    var password = document.getElementById("uploadPassword").value;
+    var ext = file.name.split(".").pop().toLowerCase();
+    if(ext === "csv"){
+      Papa.parse(file, {header:true, skipEmptyLines:true, transformHeader:function(h){ return h.trim(); },
+        complete:function(results){ processMatrixRows(results.data, file.name, password); },
+        error:function(err){ alert("Error al leer el CSV de matriz: " + err.message); }
+      });
+    } else {
+      if(typeof XLSX === "undefined"){ alert("No se pudo cargar el lector de Excel. Sube la matriz como .csv en su lugar."); return; }
+      var reader = new FileReader();
+      reader.onload = function(e){
+        try{
+          var data = new Uint8Array(e.target.result);
+          var wb = XLSX.read(data, {type:"array"});
+          var sheet = wb.Sheets[wb.SheetNames[0]];
+          var json = XLSX.utils.sheet_to_json(sheet, {defval:""});
+          processMatrixRows(json, file.name, password);
+        }catch(err){ alert("Error al leer el Excel: " + err.message); }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+  }
+
+  var funnelTab = makeTab(funnelSpec);
+  var riesgoTab = makeTab(riesgoSpec);
+  var detalleTab = makeTab(detalleSpec);
+  function rebuildAll(){ funnelTab.rebuild(); riesgoTab.rebuild(); detalleTab.rebuild(); }
+
+  document.getElementById("weeklyFile").addEventListener("change", function(e){ handleWeeklyFile(e.target.files[0]); });
+  document.getElementById("matrixFile").addEventListener("change", function(e){ handleMatrixFile(e.target.files[0]); });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".tab-btn"), function(btn){
+    btn.addEventListener("click", function(){
+      var tab = btn.getAttribute("data-tab");
+      Array.prototype.forEach.call(document.querySelectorAll(".tab-btn"), function(b){ b.classList.toggle("active", b===btn); });
+      Array.prototype.forEach.call(document.querySelectorAll(".tab-panel"), function(p){
+        p.style.display = (p.getAttribute("data-tab-panel") === tab) ? "" : "none";
+      });
+    });
+  });
+
+  bindResetButton("resetWeeks-funnel", function(){
+    var password = prompt("Ingresa la clave de carga para borrar las semanas de Funnel:");
+    if(password === null) return;
+    postSharedAction({password:password, action:"reset-funnel"})
+      .then(function(){ updateWeeksInfo(); funnelTab.rebuild(); })
+      .catch(function(err){ alert("No se pudo borrar: " + err.message); });
+  });
+  bindResetButton("resetWeeks-riesgo", function(){
+    var password = prompt("Ingresa la clave de carga para borrar las semanas de Riesgo:");
+    if(password === null) return;
+    postSharedAction({password:password, action:"reset-riesgo"})
+      .then(function(){ updateWeeksInfo(); riesgoTab.rebuild(); })
+      .catch(function(err){ alert("No se pudo borrar: " + err.message); });
+  });
+
+  updateUniverseStamp();
+  updateDataStamp();
+  updateWeeksInfo();
+  rebuildAll();
+
+  fetchSharedState()
+    .then(function(){
+      updateUniverseStamp();
+      updateDataStamp();
+      updateWeeksInfo();
+      rebuildAll();
+    })
+    .catch(function(err){
+      setUploadStatus("No se pudo cargar la data compartida (" + err.message + "). Mostrando el panel vacío.", true);
+    });
+})();
+</script>
+</body>
+</html>
